@@ -1,0 +1,37 @@
+# Compiled binaries/executables
+# (Go creates a binary named after your directory if no output flag is given)
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+*.coverprofile
+profile.cov
+
+# Go Workspaces (used for local multi-module development)
+go.work
+go.work.sum
+
+# Dependency directories
+# (Only ignored if you choose to use 'go mod vendor')
+vendor/
+
+# Local Environment Secrets
+.env
+.env.*
+!.env.example
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
