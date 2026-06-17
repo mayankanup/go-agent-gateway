@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mayankanup/go-agent-gateway/internal/api"
+	"github.com/mayankanup/go-agent-gateway/internal/memory"
 	"github.com/mayankanup/go-agent-gateway/internal/provider"
 )
 
@@ -14,8 +15,12 @@ func TestChatEndpoint(t *testing.T) {
 
 	mockProvider := provider.NewMockProvider()
 
+	repo :=
+		memory.NewInMemoryRepository()
+
 	handler := api.NewChatHandler(
 		mockProvider,
+		repo,
 	)
 
 	body := []byte(

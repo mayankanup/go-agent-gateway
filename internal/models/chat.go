@@ -1,7 +1,13 @@
 package models
 
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 type ChatRequest struct {
-	Message string `json:"message"`
+	ConversationID string `json:"conversationId"`
+	Message        string `json:"message"`
 }
 
 type ChatResponse struct {

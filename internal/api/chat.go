@@ -4,19 +4,24 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/mayankanup/go-agent-gateway/internal/memory"
 	"github.com/mayankanup/go-agent-gateway/internal/models"
 	"github.com/mayankanup/go-agent-gateway/internal/provider"
 )
 
 type ChatHandler struct {
 	provider provider.LLMProvider
+	memory   memory.Repository
 }
 
 func NewChatHandler(
 	p provider.LLMProvider,
+	m memory.Repository,
 ) *ChatHandler {
+
 	return &ChatHandler{
 		provider: p,
+		memory:   m,
 	}
 }
 
@@ -25,18 +30,12 @@ func (h *ChatHandler) ServeHTTP(
 	r *http.Request,
 ) {
 
-	if r.Method != http.MethodPost {
-		http.Error(
-			w,
-			"method not allowed",
-			http.StatusMethodNotAllowed,
-		)
-		return
-	}
-
 	var req models.ChatRequest
 
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err :=
+		json.NewDecoder(
+			r.Body,
+		).Decode(&req)
 
 	if err != nil {
 		http.Error(
@@ -47,10 +46,26 @@ func (h *ChatHandler) ServeHTTP(
 		return
 	}
 
-	response, err := h.provider.Chat(
-		r.Context(),
-		req.Message,
+	userMessage := models.Message{
+		Role:    "user",
+		Content: req.Message,
+	}
+
+	h.memory.AppendMessage(
+		req.ConversationID,
+		userMessage,
 	)
+
+	history :=
+		h.memory.GetConversation(
+			req.ConversationID,
+		)
+
+	response, err :=
+		h.provider.Chat(
+			r.Context(),
+			history,
+		)
 
 	if err != nil {
 		http.Error(
@@ -60,6 +75,16 @@ func (h *ChatHandler) ServeHTTP(
 		)
 		return
 	}
+
+	assistantMessage := models.Message{
+		Role:    "assistant",
+		Content: response,
+	}
+
+	h.memory.AppendMessage(
+		req.ConversationID,
+		assistantMessage,
+	)
 
 	resp := models.ChatResponse{
 		Response: response,

@@ -5,16 +5,23 @@ import (
 	"net/http"
 
 	"github.com/mayankanup/go-agent-gateway/internal/api"
+	"github.com/mayankanup/go-agent-gateway/internal/memory"
 	"github.com/mayankanup/go-agent-gateway/internal/provider"
 )
 
 func main() {
 
-	mockProvider := provider.NewMockProvider()
+	mockProvider :=
+		provider.NewMockProvider()
 
-	chatHandler := api.NewChatHandler(
-		mockProvider,
-	)
+	repo :=
+		memory.NewInMemoryRepository()
+
+	chatHandler :=
+		api.NewChatHandler(
+			mockProvider,
+			repo,
+		)
 
 	mux := http.NewServeMux()
 
@@ -27,12 +34,10 @@ func main() {
 		"Agent Gateway running on :8080",
 	)
 
-	err := http.ListenAndServe(
-		":8080",
-		mux,
+	log.Fatal(
+		http.ListenAndServe(
+			":8080",
+			mux,
+		),
 	)
-
-	if err != nil {
-		log.Fatal(err)
-	}
 }
