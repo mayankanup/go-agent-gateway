@@ -9,6 +9,9 @@ Phase 1 implementation of a Go-based AI Agent Gateway.
 - Provider abstraction
 - Unit tests
 
+## Installing sqlite driver
+go get github.com/mattn/go-sqlite3
+
 ## Run
 
 go run cmd/server/main.go
