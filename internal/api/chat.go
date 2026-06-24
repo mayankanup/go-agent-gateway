@@ -4,24 +4,28 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/mayankanup/go-agent-gateway/internal/memory"
+	"github.com/mayankanup/go-agent-gateway/internal/metrics"
 	"github.com/mayankanup/go-agent-gateway/internal/models"
 	"github.com/mayankanup/go-agent-gateway/internal/provider"
+	"github.com/mayankanup/go-agent-gateway/internal/repository"
 )
 
 type ChatHandler struct {
 	provider provider.LLMProvider
-	memory   memory.Repository
+	repo     repository.ConversationRepository
+	metrics  *metrics.Metrics
 }
 
 func NewChatHandler(
 	p provider.LLMProvider,
-	m memory.Repository,
+	repo repository.ConversationRepository,
+	metrics *metrics.Metrics,
 ) *ChatHandler {
 
 	return &ChatHandler{
 		provider: p,
-		memory:   m,
+		repo:     repo,
+		metrics:  metrics,
 	}
 }
 
@@ -30,17 +34,43 @@ func (h *ChatHandler) ServeHTTP(
 	r *http.Request,
 ) {
 
+	if r.Method != http.MethodPost {
+		http.Error(
+			w,
+			"method not allowed",
+			http.StatusMethodNotAllowed,
+		)
+		return
+	}
+
+	h.metrics.IncrementRequests()
+
 	var req models.ChatRequest
 
-	err :=
-		json.NewDecoder(
-			r.Body,
-		).Decode(&req)
+	err := json.NewDecoder(r.Body).Decode(&req)
 
 	if err != nil {
 		http.Error(
 			w,
-			"invalid request",
+			"invalid request body",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	if req.ConversationID == "" {
+		http.Error(
+			w,
+			"conversationId is required",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	if req.Message == "" {
+		http.Error(
+			w,
+			"message is required",
 			http.StatusBadRequest,
 		)
 		return
@@ -51,21 +81,37 @@ func (h *ChatHandler) ServeHTTP(
 		Content: req.Message,
 	}
 
-	h.memory.AppendMessage(
+	err = h.repo.AppendMessage(
 		req.ConversationID,
 		userMessage,
 	)
 
-	history :=
-		h.memory.GetConversation(
-			req.ConversationID,
+	if err != nil {
+		http.Error(
+			w,
+			"failed to save message",
+			http.StatusInternalServerError,
 		)
+		return
+	}
 
-	response, err :=
-		h.provider.Chat(
-			r.Context(),
-			history,
+	history, err := h.repo.GetConversation(
+		req.ConversationID,
+	)
+
+	if err != nil {
+		http.Error(
+			w,
+			"failed to load history",
+			http.StatusInternalServerError,
 		)
+		return
+	}
+
+	response, err := h.provider.Chat(
+		r.Context(),
+		history,
+	)
 
 	if err != nil {
 		http.Error(
@@ -81,10 +127,19 @@ func (h *ChatHandler) ServeHTTP(
 		Content: response,
 	}
 
-	h.memory.AppendMessage(
+	err = h.repo.AppendMessage(
 		req.ConversationID,
 		assistantMessage,
 	)
+
+	if err != nil {
+		http.Error(
+			w,
+			"failed to save response",
+			http.StatusInternalServerError,
+		)
+		return
+	}
 
 	resp := models.ChatResponse{
 		Response: response,
@@ -94,6 +149,8 @@ func (h *ChatHandler) ServeHTTP(
 		"Content-Type",
 		"application/json",
 	)
+
+	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(resp)
 }
